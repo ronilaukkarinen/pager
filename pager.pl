@@ -66,13 +66,19 @@ sub message
   {
     my ($server, $msg, $nick, $address) = @_;
 
-    return unless time - $times{$nick} > 1200;  # send an auto-reply for instance once an hour (3600). 600 = 10min.
+    my $away_notice_time = Irssi::settings_get_str("away_notice_time");
+
+    return unless time - $times{$nick} > $away_notice_time;  # send an auto-reply for instance once an hour (3600). 600 = 10min.
     $times{$nick} = time;
 
   my $append;
   if ($away_time) {
     $append = "-- I'm currently afk (" . $server->{'away_reason'} . "). (last seen in IRC: " . duration_exact(time - $away_time) . " ago)";
   }
+
+  if($server->{'address'} eq "dudet.irc.slack.com" || $server->{'address'} eq "peikko") {
+
+  } else {
 
     if ($server->{usermode_away})
       {
@@ -101,6 +107,8 @@ sub message
 	      }
 	  }
       }
+
+  }
   }
 
 sub dcc_request
@@ -127,6 +135,8 @@ Irssi::settings_add_str("misc",	"page_command",
 			"esdplay ~/sound/events/page.wav &");
 Irssi::settings_add_str("misc", "away_notice",
 			'$N is away ($A). Type /MSG $N PAGE to page him.');
+Irssi::settings_add_str("misc", "away_notice_time",
+			'3600');
 Irssi::settings_add_str("misc", "paged_notice",
 			'$N has been paged.');
 Irssi::settings_add_str("misc",	"dcc_notice",
