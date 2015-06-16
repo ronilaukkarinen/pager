@@ -1,14 +1,14 @@
 use Irssi 20020121.2020 ();
 use Time::Duration qw/duration_exact/;
 
-$VERSION = "9.2";
+$VERSION = "9.3";
 %IRSSI = (
 	  authors     => 'Jean-Yves Lefort, Roni Laukkarinen',
 	  contact     => 'roni\@laukkarinen.info',
 	  name        => 'pager',
 	  description => 'Notifies people if they send you a private message or a DCC chat offer while you are away; runs a shell command configurable via /set if they page you',
 	  license     => 'BSD',
-	  changed     => '$Date: 2015/06/10 21:47 $ ',
+	  changed     => '$Date: 2015/06/16 10:52 $ ',
 );
 
 # note:
@@ -62,74 +62,69 @@ sub away
   %times=();
 }
 
-sub message
-  {
+sub message {
     my ($server, $msg, $nick, $address) = @_;
 
     my $away_notice_time = Irssi::settings_get_str("away_notice_time");
 
-    return unless time - $times{$nick} > $away_notice_time;  # send an auto-reply for instance once an hour (3600). 600 = 10min.
-    $times{$nick} = time;
+  		if($server->{'address'} eq "dudet.irc.slack.com" || $server->{'address'} eq "peikko") {
+  			# Do nothing
+  		} else {
 
-  my $append;
-  if ($away_time) {
-    $append = "-- I'm currently afk (" . $server->{'away_reason'} . "). (last seen in IRC: " . duration_exact(time - $away_time) . " ago)";
-  }
+  			# Send an auto-reply for instance once an hour (3600). 600 = 10min.
+    		return unless time - $times{$nick} > $away_notice_time; 
+    		$times{$nick} = time;
 
-  if($server->{'address'} eq "dudet.irc.slack.com" || $server->{'address'} eq "peikko") {
+  			my $append;
+  				if ($away_time) {
+    				$append = "-- I'm currently afk (" . $server->{'away_reason'} . "). (last seen in IRC: " . duration_exact(time - $away_time) . " ago)";
+  				}
 
-  } else {
+    		if ($server->{usermode_away}) {
+				if (lc($msg) eq "page") {
+	    			my $page_command = Irssi::settings_get_str("page_command");
+	    			my $paged_notice = Irssi::settings_get_str("paged_notice");
 
-    if ($server->{usermode_away})
-      {
-	if (lc($msg) eq "page")
-	  {
-	    my $page_command = Irssi::settings_get_str("page_command");
-	    my $paged_notice = Irssi::settings_get_str("paged_notice");
+	    		if ($page_command) {
+					system($page_command);
+	      		}
+	    		
+	    		if ($paged_notice) {
+					$server->command("EVAL NOTICE $nick $paged_notice");
+	      		}
 
-	    if ($page_command)
-	      {
-		system($page_command);
-	      }
-	    if ($paged_notice)
-	      {
-		$server->command("EVAL NOTICE $nick $paged_notice");
-	      }
-	  }
-	else
-	  {
-	    my $away_notice = Irssi::settings_get_str("away_notice");
-	    
-	    if ($away_notice)
-	      {
-#		$server->command("EVAL MSG $nick $away_notice $append");
-		$server->command("EVAL MSG $nick $append");
-	      }
-	  }
-      }
+	  		} else {
+	    		my $away_notice = Irssi::settings_get_str("away_notice");
+	    	
+	    		if ($away_notice) {
+					# $server->command("EVAL MSG $nick $away_notice $append");
+					$server->command("EVAL MSG $nick $append");
+	      		}
+	  		}
+      	}
+  	}
+  
+}
 
-  }
-  }
-
-sub dcc_request
-  {
+sub dcc_request {
+    
     my ($dcc, $sendaddr) = @_;
     
-    if ($dcc->{server}->{usermode_away} && $dcc->{type} eq "CHAT")
-      {
-	my $page_command = Irssi::settings_get_str("page_command");
-	my $dcc_notice = Irssi::settings_get_str("dcc_notice");
+    	if ($dcc->{server}->{usermode_away} && $dcc->{type} eq "CHAT") {
+			my $page_command = Irssi::settings_get_str("page_command");
+			my $dcc_notice = Irssi::settings_get_str("dcc_notice");
 
-	if ($page_command)
-	  {
-	    system($page_command);
-	  }
-	if ($dcc_notice)
-	  {
-	    $dcc->{server}->command("EVAL MSG $dcc->{nick} $dcc_notice");
-	  }
-      }
-  }
+			if ($page_command) {
+	    		system($page_command);
+	  		}
+
+		if ($dcc_notice) {
+	    	$dcc->{server}->command("EVAL MSG $dcc->{nick} $dcc_notice");
+	  	}
+
+    }
+
+}
 
 Irssi::settings_add_str("misc",	"page_command",
 			"esdplay ~/sound/events/page.wav &");
